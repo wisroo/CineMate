@@ -1,0 +1,65 @@
+---
+description: 데이터 수집·전처리·ChromaDB 적재 패턴 및 새 소스 추가 방법
+globs: scripts/**/*.py,core/rag_pipeline.py
+alwaysApply: false
+---
+
+# 데이터 파이프라인 패턴
+
+## DataSource 인터페이스 - 새 소스 추가 방법
+
+모든 데이터 소스는 `DataSource` 추상 클래스를 구현합니다.
+새 소스를 추가할 때 기존 코드를 수정하지 않고 클래스만 추가합니다.
+
+```python
+# core/rag_pipeline.py
+from abc import ABC, abstractmethod
+
+class DataSource(ABC):
+    @abstractmethod
+    def fetch(self, movie_id: str) -> str:
+        """영화 ID(또는 제목)를 받아 텍스트 반환"""
+        ...
+
+# 소스별 구현 예시
+class TMDBSource(DataSource):          # TMDB API (구조화된 메타데이터)
+    def fetch(self, movie_id: str) -> str: ...
+
+class WikipediaSource(DataSource):     # Wikipedia (줄거리 요약)
+    def fetch(self, movie_id: str) -> str: ...
+
+class LocalFileSource(DataSource):     # data/raw/ 로컬 파일
+    def fetch(self, movie_id: str) -> str: ...
+
+class PDFSource(DataSource):           # PDF 문서 (비평/분석 기사)
+    def fetch(self, movie_id: str) -> str: ...
+```
+
+## 데이터 수집 우선순위 (권장)
+
+```
+1순위: TMDB API      → 구조화된 줄거리, 캐릭터 정보 (무료, 안정적)
+2순위: Wikipedia     → 추가 줄거리, 수상 내역
+3순위: 로컬 파일     → 수동 큐레이션 고품질 텍스트
+4순위: PDF 로드      → 영화 비평 기사, 학술 분석
+```
+
+## 청킹 파라미터 기준
+
+```python
+# ✅ 권장 설정
+RecursiveCharacterTextSplitter(
+    chunk_size=600,
+    chunk_overlap=80,
+    separators=["\n\n", "\n", ".", " "]
+)
+# chunk_size < 400: 맥락 손실 위험
+# chunk_size > 800: 검색 정밀도 저하
+```
+
+## ingest_data.py 실행 후 검증 체크리스트
+
+- [ ] `data/raw/` 하위에 영화별 txt 파일 존재 확인
+- [ ] ChromaDB 청크 수 출력 (최소 200개 이상 권장)
+- [ ] `retriever.invoke("테스트 질문")` 으로 관련 문서 반환 확인
+- [ ] 메타데이터에 `source` (파일명), `movie` (영화명) 포함 확인
