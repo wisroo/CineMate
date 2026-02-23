@@ -1,0 +1,40 @@
+[project]
+name = "cinemate"
+version = "0.1.0"
+description = "디즈니·마블·픽사 세계관 분석 AI Agent"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "langchain>=0.3",
+    "langchain-openai",
+    "langchain-community",
+    "langchain-chroma",
+    "langgraph",
+    "chromadb",
+    "openai",
+    "streamlit",
+    "python-dotenv",
+    "requests",
+    "wikipedia-api",
+    "tavily-python",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "ruff",
+    "black",
+]
+
+# onnxruntime has no wheel for macOS 26 x86_64; we use OpenAI embeddings only.
+[tool.uv]
+override-dependencies = ["onnxruntime; sys_platform == 'never'"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

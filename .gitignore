@@ -205,3 +205,8 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# CineMate
+data/vectorstore/
+!data/vectorstore/.gitkeep
+data/raw/
