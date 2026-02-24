@@ -80,7 +80,10 @@ CineMate/
 │   └── vectorstore/             # ChromaDB 저장소 (gitignore)
 │
 ├── scripts/
-│   └── ingest_data.py           # 데이터 수집 + ChromaDB 초기화 실행 스크립트
+│   ├── constants.py             # MovieConfig TypedDict + 수집 관련 상수
+│   ├── movies.py                # 수집 대상 영화 목록 (MOVIES)
+│   ├── fetchers.py              # Fetcher Protocol + TMDBFetcher + WikipediaFetcher
+│   └── ingest_data.py           # 수집 오케스트레이터 + CLI (argparse)
 │
 ├── app/                         # 서비스 레이어 (교체 가능)
 │   ├── streamlit/               # [현재] 테스트 UI
@@ -192,25 +195,44 @@ Phase 3 (확장): 웹 스크래핑
 
 ### 데이터 소스 추상화 인터페이스
 
+두 레이어의 역할이 다르므로 인터페이스를 분리한다.
+
+**RAG 소비 인터페이스 — `core/rag_pipeline.py`**
+
+RAG 파이프라인이 이미 저장된 데이터를 읽는 방법을 추상화한다.
+`core/`는 LangChain 의존성만 허용하므로, 외부 API 라이브러리(`requests` 등)를 사용하는
+수집 클래스는 이 인터페이스를 구현할 수 없다.
+
 ```python
 # core/rag_pipeline.py
-
-class DataSource:
-    """모든 데이터 소스의 공통 인터페이스"""
-    def fetch(self, movie_id: str) -> str:
-        raise NotImplementedError
-
-class TMDBSource(DataSource):       # TMDB API
+class DataSource(ABC):
+    """RAG 파이프라인이 문서를 읽는 인터페이스. 새 저장 포맷 추가 시 구현한다."""
+    @abstractmethod
     def fetch(self, movie_id: str) -> str: ...
 
-class WikipediaSource(DataSource):  # Wikipedia
+class LocalFileSource(DataSource):  # data/raw/ 로컬 파일 읽기
     def fetch(self, movie_id: str) -> str: ...
+```
 
-class LocalFileSource(DataSource):  # data/raw/ 디렉토리
-    def fetch(self, movie_id: str) -> str: ...
+**수집 인터페이스 — `scripts/fetchers.py`**
 
-# ingest_data.py에서 소스를 선택/조합하여 사용
-SOURCES = [TMDBSource(), WikipediaSource()]
+외부 API 또는 스크래퍼에서 원본 텍스트를 가져와 `data/raw/`에 저장하는 역할.
+`scripts/` 레이어에서만 사용되며 RAG 파이프라인과 무관하다.
+
+```python
+# scripts/fetchers.py
+class Fetcher(Protocol):
+    """외부 소스에서 영화 텍스트를 수집하는 인터페이스."""
+    def fetch(self, movie: MovieConfig) -> str: ...
+
+class TMDBFetcher:          # TMDB API → 구조화된 메타데이터
+    def fetch(self, movie: MovieConfig) -> str: ...
+
+class WikipediaFetcher:     # Wikipedia → 줄거리/제작 정보
+    def fetch(self, movie: MovieConfig) -> str: ...
+
+# scripts/ingest_data.py에서 조합하여 사용
+fetchers: list[Fetcher] = [TMDBFetcher(), WikipediaFetcher()]
 ```
 
 ### 수집 대상 영화 목록 (초기)
