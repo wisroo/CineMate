@@ -17,6 +17,10 @@ dependencies = [
     "requests",
     "wikipedia-api",
     "tavily-python",
+    "fastapi>=0.133.0",
+    "uvicorn[standard]>=0.41.0",
+    "httptools>=0.7.1",
+    "websockets>=16.0",
 ]
 
 [dependency-groups]

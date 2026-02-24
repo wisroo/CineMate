@@ -2,6 +2,17 @@
 
 Ultimate Mate for your Cinema — 디즈니·마블·픽사 세계관 분석 AI Agent.
 
+사용자 질문을 자동 분류해, 작품 내적 질문은 **RAG Agent**(ChromaDB 검색 + CoT 분석)로,
+최신 정보 질문은 **Tool Agent**(Wikipedia·Tavily·TMDB 실시간 검색)로 답변하는 Multi-Agent 시스템.
+
+```
+[사용자 질문]
+      ↓
+  router_node  (LLM 분류: "rag" | "tool")
+   ├─ rag  → ChromaDB 검색 → CoT 프롬프트 → 답변
+   └─ tool → ReAct (Wikipedia / Tavily / TMDB) → 답변
+```
+
 ## 실행 환경: uv
 
 이 프로젝트는 [uv](https://docs.astral.sh/uv/)를 Python 패키지·실행 환경으로 사용합니다.
@@ -10,7 +21,7 @@ Ultimate Mate for your Cinema — 디즈니·마블·픽사 세계관 분석 AI 
 
 - [uv 설치](https://docs.astral.sh/uv/getting-started/installation/) (권장: `curl -LsSf https://astral.sh/uv/install.sh | sh`)
 
-### 설치 및 실행
+### 설치 및 데이터 준비
 
 ```bash
 # 1. 가상환경 생성 + 의존성 설치 (lockfile 기준)
@@ -25,12 +36,56 @@ uv run python scripts/ingest_data.py
 
 # 4. ChromaDB 벡터스토어 빌드
 uv run python -c "from core.rag_pipeline import RAGPipeline; RAGPipeline().build()"
-
-# 5. 테스트
-uv run pytest tests/test_rag_pipeline.py -v
 ```
 
-### uv 명령 요약
+### Streamlit UI 실행
+
+```bash
+uv run streamlit run app/streamlit/main.py
+# → http://localhost:8501
+```
+
+### FastAPI 백엔드 실행
+
+```bash
+uv run uvicorn app.api.main:app --reload --port 8000
+# → http://localhost:8000/docs  (Swagger UI)
+```
+
+POST `/v1/chat` 예시:
+```bash
+curl -X POST http://localhost:8000/v1/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "엔드게임에서 토니가 희생한 이유?", "session_id": "my-session"}'
+```
+
+### Docker로 실행
+
+```bash
+# Streamlit + FastAPI 동시 실행
+docker compose -f docker/docker-compose.yml up --build
+
+# Streamlit만
+docker compose -f docker/docker-compose.yml up streamlit --build
+```
+
+### 테스트
+
+```bash
+# 전체 테스트
+uv run pytest -v
+
+# 도구 단위 테스트 (API 키 불필요)
+uv run pytest tests/test_tools.py -v
+
+# RAG 파이프라인 테스트 (벡터스토어 빌드 필요)
+uv run pytest tests/test_rag_pipeline.py -v
+
+# 통합 테스트 (벡터스토어 + API 키 필요)
+uv run pytest tests/test_agent_graph.py -v -s
+```
+
+### uv 명령 요약 (참고)
 
 | 명령 | 설명 |
 |------|------|
