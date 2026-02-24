@@ -1,9 +1,9 @@
 """
 RAG 파이프라인 단위 테스트.
 
-전제 조건:
-  1. python scripts/ingest_data.py 실행 완료 (data/raw/ 에 txt 파일 존재)
-  2. RAGPipeline.build() 실행 완료 (data/vectorstore/ 에 ChromaDB 존재)
+벡터스토어 의존 테스트: data/vectorstore 가 비어 있으면 skip 됩니다.
+  - 먼저 실행: uv run python scripts/ingest_data.py
+  - 그다음:   uv run python -c "from core.rag_pipeline import RAGPipeline; RAGPipeline().build()"
 
 실행: uv run pytest tests/test_rag_pipeline.py -v
 """
@@ -12,11 +12,21 @@ import pytest
 
 from core.rag_pipeline import LocalFileSource, RAGPipeline
 
+_VECTORSTORE_SKIP_MSG = (
+    "Vector store not built. Run: uv run python scripts/ingest_data.py && "
+    'uv run python -c "from core.rag_pipeline import RAGPipeline; RAGPipeline().build()"'
+)
+
 
 @pytest.fixture(scope="module")
 def retriever():
-    pipeline = RAGPipeline()
-    return pipeline.get_retriever(k=4)
+    try:
+        pipeline = RAGPipeline()
+        return pipeline.get_retriever(k=4)
+    except RuntimeError as e:
+        if "empty" in str(e).lower() or "Run RAGPipeline.build" in str(e):
+            pytest.skip(_VECTORSTORE_SKIP_MSG)
+        raise
 
 
 @pytest.fixture(scope="module")
@@ -56,6 +66,8 @@ def test_retriever_result_has_required_metadata(retriever):
 
 def test_chunk_count_is_sufficient(vectorstore_count):
     """ChromaDB 총 청크 수가 200개 이상이어야 한다 (data-pipeline 기준)."""
+    if vectorstore_count == 0:
+        pytest.skip(_VECTORSTORE_SKIP_MSG)
     assert vectorstore_count >= 200, (
         f"청크 수가 부족합니다: {vectorstore_count}개 (기준: 200개 이상). "
         "ingest_data.py를 재실행하거나 수집 데이터를 확인하세요."
