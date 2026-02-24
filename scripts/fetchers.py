@@ -29,9 +29,12 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-_TMDB_API_KEY = os.getenv("TMDB_API_KEY")
-if not _TMDB_API_KEY:
-    raise RuntimeError("TMDB_API_KEY is not set in .env")
+_TMDB_API_KEY = os.getenv("TMDB_API_KEY") or ""
+_TMDB_ACCESS_TOKEN = os.getenv("TMDB_ACCESS_TOKEN") or ""
+if not _TMDB_API_KEY and not _TMDB_ACCESS_TOKEN:
+    raise RuntimeError(
+        "Set either TMDB_API_KEY (API Key v3) or TMDB_ACCESS_TOKEN (Read Access Token) in .env"
+    )
 
 
 class Fetcher(Protocol):
@@ -42,25 +45,40 @@ class Fetcher(Protocol):
         ...
 
 
+def _tmdb_request(url: str) -> requests.Response:
+    """API Key(v3) 또는 Access Token(Bearer) 중 설정된 것으로 TMDB 요청."""
+    if _TMDB_API_KEY:
+        return requests.get(
+            url,
+            params={"api_key": _TMDB_API_KEY, "language": TMDB_LANGUAGE},
+            timeout=TMDB_REQUEST_TIMEOUT,
+        )
+    headers = {
+        "Authorization": f"Bearer {_TMDB_ACCESS_TOKEN}",
+        "Accept": "application/json",
+    }
+    return requests.get(
+        url,
+        params={"language": TMDB_LANGUAGE},
+        headers=headers,
+        timeout=TMDB_REQUEST_TIMEOUT,
+    )
+
+
 class TMDBFetcher:
     def fetch(self, movie: MovieConfig) -> str:
         movie_id = movie["id"]
         title = movie["title"]
-        params = {"api_key": _TMDB_API_KEY, "language": TMDB_LANGUAGE}
 
         try:
-            detail_resp = requests.get(
+            detail_resp = _tmdb_request(
                 f"{TMDB_BASE_URL}/movie/{movie_id}",
-                params=params,
-                timeout=TMDB_REQUEST_TIMEOUT,
             )
             detail_resp.raise_for_status()
             detail = detail_resp.json()
 
-            credits_resp = requests.get(
+            credits_resp = _tmdb_request(
                 f"{TMDB_BASE_URL}/movie/{movie_id}/credits",
-                params=params,
-                timeout=TMDB_REQUEST_TIMEOUT,
             )
             credits_resp.raise_for_status()
             credits = credits_resp.json()
