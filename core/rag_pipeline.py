@@ -1,4 +1,6 @@
 """
+core/rag_pipeline.py
+
 RAG 파이프라인: DataSource 추상화, 문서 적재, ChromaDB 임베딩, Retriever 반환.
 """
 
@@ -43,6 +45,7 @@ _embeddings = _create_embeddings()
 def get_embeddings():
     """테스트 등에서 동일 임베딩 설정을 쓸 때 사용. RAGPipeline과 같은 인스턴스."""
     return _embeddings
+
 
 _splitter = RecursiveCharacterTextSplitter(
     chunk_size=600,
@@ -110,11 +113,15 @@ class RAGPipeline:
         """load → split → embed → persist 전체 파이프라인 1회 실행."""
         raw_path = Path(raw_dir)
         if not raw_path.exists():
-            raise RuntimeError(f"raw_dir does not exist: {raw_dir}. Run ingest_data.py first.")
+            raise RuntimeError(
+                f"raw_dir does not exist: {raw_dir}. Run ingest_data.py first."
+            )
 
         docs = _load_documents_from_dir(raw_path)
         if not docs:
-            raise RuntimeError(f"No txt files found in {raw_dir}. Run ingest_data.py first.")
+            raise RuntimeError(
+                f"No txt files found in {raw_dir}. Run ingest_data.py first."
+            )
 
         chunks = _splitter.split_documents(docs)
         logger.info("Split into %d chunks", len(chunks))
