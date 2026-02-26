@@ -1,4 +1,6 @@
 """
+core/tools.py
+
 ReAct Tool 노드용 LangChain @tool 정의.
 
 scripts/fetchers.py(수집·ingest 전용)와 역할이 다르며,
@@ -13,6 +15,8 @@ import wikipediaapi
 from dotenv import load_dotenv
 from langchain_core.tools import tool
 from tavily import TavilyClient
+
+from core.rag_pipeline import RAGPipeline
 
 load_dotenv()
 
@@ -117,7 +121,9 @@ def tmdb_search(query: str) -> str:
     Returns:
         Movie metadata including title, release date, director, cast, and overview.
     """
-    search_resp = _tmdb_get(f"{_TMDB_BASE_URL}/search/movie?query={requests.utils.quote(query)}")
+    search_resp = _tmdb_get(
+        f"{_TMDB_BASE_URL}/search/movie?query={requests.utils.quote(query)}"
+    )
     search_resp.raise_for_status()
     results = search_resp.json().get("results", [])
 
@@ -143,14 +149,49 @@ def tmdb_search(query: str) -> str:
         logger.warning("TMDB credits fetch failed for %s: %s", title, e)
         cast, director = "N/A", "N/A"
 
-    return "\n".join([
-        f"Title: {title}",
-        f"Release Date: {release_date}",
-        f"Director: {director}",
-        f"Main Cast: {cast}",
-        f"Overview: {overview}",
-        f"TMDB URL: https://www.themoviedb.org/movie/{movie_id}",
-    ])
+    return "\n".join(
+        [
+            f"Title: {title}",
+            f"Release Date: {release_date}",
+            f"Director: {director}",
+            f"Main Cast: {cast}",
+            f"Overview: {overview}",
+            f"TMDB URL: https://www.themoviedb.org/movie/{movie_id}",
+        ]
+    )
+
+
+@tool
+def rag_search(query: str) -> str:
+    """Search the internal ChromaDB vector store for movie scripts and plot summaries.
+
+    Use this tool to find deep details about plots, character psychology, and endings
+    from the internal database of movie scripts and scene analysis.
+
+    Args:
+        query: Specific question or keyword (e.g., "Why did Tony Stark sacrifice himself?")
+
+    Returns:
+        Relevant excerpts and context from the vector database.
+    """
+    pipeline = RAGPipeline()
+    try:
+        docs = pipeline.get_retriever(k=4).invoke(query)
+        if not docs:
+            return (
+                f"No relevant information found in the internal database for: {query}"
+            )
+
+        results = []
+        for doc in docs:
+            source = doc.metadata.get("source", "Unknown")
+            results.append(f"[Source: {source}]\n{doc.page_content}")
+
+        return "\n\n---\n\n".join(results)
+    except Exception as e:
+        logger.error("rag_search tool failed: %s", e)
+        return f"Error accessing internal database: {str(e)}"
 
 
 TOOLS = [wikipedia_search, tavily_search, tmdb_search]
+RESEARCHER_TOOLS = [rag_search, wikipedia_search, tavily_search, tmdb_search]
