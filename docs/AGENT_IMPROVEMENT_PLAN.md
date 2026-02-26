@@ -6,9 +6,9 @@
 
 ## §1 서비스 개요: 두 가지 모드
 
-| 모드 | 명칭 | 특성 | 진입 방식 |
-|------|------|------|-----------|
-| 팝콘 모드 (Popcorn Mode) | 빠른 팩트 중심 Q&A | 단일 질의 → 즉시 답변 | `CineMateAgent.run(query, mode="chat", session_id=...)` |
+| 모드                        | 명칭                | 특성                                 | 진입 방식                                                   |
+| --------------------------- | ------------------- | ------------------------------------ | ----------------------------------------------------------- |
+| 팝콘 모드 (Popcorn Mode)    | 빠른 팩트 중심 Q&A  | 단일 질의 → 즉시 답변                | `CineMateAgent.run(query, mode="chat", session_id=...)`     |
 | 디렉터 모드 (Director Mode) | 깊이 있는 분석·통찰 | 수집 → 분석 → 편집 → 검수 파이프라인 | `CineMateAgent.run(query, mode="director", session_id=...)` |
 
 `CineMateAgent`는 `mode` 파라미터에 따라 내부적으로 `_chat_graph` 또는 `_director_graph`를 호출하며, 외부 진입점(`AgentResponse` 반환)은 동일하게 유지됩니다.
@@ -58,12 +58,12 @@ class ChatState(TypedDict):
 
 **Researcher Agent:** `router`가 없습니다. LLM 자신이 어떤 도구를 몇 번이든 자유롭게 선택하며, **RAG와 Web 검색을 동시에** 활용할 수 있습니다. 팝콘 모드에서 별개의 경로였던 `rag_node`는 `@tool rag_search`로 래핑돼 도구 하나가 되고, 기존 3개 Web 도구와 함께 하나의 ReAct 루프 안으로 들어옵니다.
 
-| 구분 | 팝콘 모드 | Researcher Agent |
-|------|-----------|-----------------|
-| 노드 수 | 4개 (router, rag_node, tool_agent, tools_node) | 2개 (researcher_agent, tools_node) |
-| 도구 접근 | EITHER RAG OR Tool (router가 결정) | RAG + Web 동시 접근 (LLM이 결정) |
-| 도구 목록 | 경로마다 고정 | `rag_search`, `wikipedia_search`, `tavily_search`, `tmdb_search` 모두 사용 가능 |
-| 출력 목적 | 사용자에게 최종 답변 | Analyst에게 넘길 원자료(raw_data) 수집 |
+| 구분      | 팝콘 모드                                      | Researcher Agent                                                                |
+| --------- | ---------------------------------------------- | ------------------------------------------------------------------------------- |
+| 노드 수   | 4개 (router, rag_node, tool_agent, tools_node) | 2개 (researcher_agent, tools_node)                                              |
+| 도구 접근 | EITHER RAG OR Tool (router가 결정)             | RAG + Web 동시 접근 (LLM이 결정)                                                |
+| 도구 목록 | 경로마다 고정                                  | `rag_search`, `wikipedia_search`, `tavily_search`, `tmdb_search` 모두 사용 가능 |
+| 출력 목적 | 사용자에게 최종 답변                           | Analyst에게 넘길 원자료(raw_data) 수집                                          |
 
 노드 수 자체는 팝콘 모드(4개)보다 Researcher(2개)가 오히려 적습니다. 하지만 Researcher는 **도구를 병렬·순차로 자유롭게 조합**할 수 있으므로 수집 능력은 훨씬 풍부합니다.
 
@@ -98,7 +98,7 @@ CineMate/
 ```
 
 **신규 파일:** `graph/director_graph.py` 1개만 생성.
-**수정 파일:** `core/prompts.py`, `core/tools.py`, `graph/agent_graph.py`, `graph/schemas.py`, `app/streamlit/main.py`.
+**수정 파일:** `core/prompts.py`, `core/tools.py`, `graph/agent_graph.py`, `graph/schemas.py`, `app.py`.
 
 ---
 
@@ -106,12 +106,12 @@ CineMate/
 
 ### §5.1 에이전트 역할 정의
 
-| 에이전트 | 노드명 | 핵심 역할 | 기법 |
-|----------|--------|-----------|------|
-| 정보 수집가 (Researcher) | `researcher_agent` + `tools_node` | RAG·웹 검색으로 Raw Data 수집 | ReAct (researcher_agent ↔ tools_node 루프) |
-| 콘텐츠 분석가 (Analyst) | `analyst` | Raw Data 기반 영화적 의미·캐릭터 심리·세계관 연결 분석 후 Draft 작성 | CoT |
-| 수석 에디터 (Editor) | `editor` | Draft를 Disney 톤앤매너(따뜻·유머·웅장)로 윤문 | Few-shot |
-| 검수자 (Reviewer) | `reviewer` | 톤·정확성·환각 여부 평가 → PASS / REVISE | 평가 프롬프트 |
+| 에이전트                 | 노드명                            | 핵심 역할                                                            | 기법                                       |
+| ------------------------ | --------------------------------- | -------------------------------------------------------------------- | ------------------------------------------ |
+| 정보 수집가 (Researcher) | `researcher_agent` + `tools_node` | RAG·웹 검색으로 Raw Data 수집                                        | ReAct (researcher_agent ↔ tools_node 루프) |
+| 콘텐츠 분석가 (Analyst)  | `analyst`                         | Raw Data 기반 영화적 의미·캐릭터 심리·세계관 연결 분석 후 Draft 작성 | CoT                                        |
+| 수석 에디터 (Editor)     | `editor`                          | Draft를 Disney 톤앤매너(따뜻·유머·웅장)로 윤문                       | Few-shot                                   |
+| 검수자 (Reviewer)        | `reviewer`                        | 톤·정확성·환각 여부 평가 → PASS / REVISE                             | 평가 프롬프트                              |
 
 ### §5.2 State 스키마 (`graph/schemas.py`에 추가)
 
@@ -240,11 +240,11 @@ FEEDBACK: <구체적 수정 요청. 예: "토니 스타크의 희생 동기를 r
 
 두 모드 모두 동일한 멀티턴 전략을 사용합니다.
 
-| 위치 | 내용 |
-|------|------|
-| **invoke** | 매 턴 `messages: [HumanMessage(content=query)]`만 추가. `add_messages` + 체크포인터로 이전 턴과 자동 합쳐짐. |
-| **모든 노드** | LLM 호출 시 `state["messages"][-10:]` (최근 5턴 = Human+AI 10개)만 잘라서 사용해 토큰·비용 제한. |
-| **세션 관리** | `InMemorySaver` + `thread_id` 유지. `session_id`가 곧 `thread_id`. |
+| 위치          | 내용                                                                                                         |
+| ------------- | ------------------------------------------------------------------------------------------------------------ |
+| **invoke**    | 매 턴 `messages: [HumanMessage(content=query)]`만 추가. `add_messages` + 체크포인터로 이전 턴과 자동 합쳐짐. |
+| **모든 노드** | LLM 호출 시 `state["messages"][-10:]` (최근 5턴 = Human+AI 10개)만 잘라서 사용해 토큰·비용 제한.             |
+| **세션 관리** | `InMemorySaver` + `thread_id` 유지. `session_id`가 곧 `thread_id`.                                           |
 
 ---
 
@@ -273,7 +273,6 @@ FEEDBACK: <구체적 수정 요청. 예: "토니 스타크의 희생 동기를 r
 - **Callouts:** `st.info`나 `st.status` 등을 커스텀하여 분석 결과(디렉터 심층 분석)를 강조하는 전용 레이아웃 구성.
 - **Lucide Icons:** Streamlit 기본 아이콘 외에도 `lucide-icons` 스타일을 차용하여 버튼 및 섹션 헤더의 시각적 완성도 향상.
 
-
 ## §8 구현 우선순위
 
 | 순서 | 작업                     | 파일                      | 내용                                                                           |
@@ -284,7 +283,7 @@ FEEDBACK: <구체적 수정 요청. 예: "토니 스타크의 희생 동기를 r
 | 4    | 프롬프트 추가            | `core/prompts.py`         | `RESEARCHER_PROMPT`, `ANALYST_PROMPT`, `EDITOR_PROMPT`, `REVIEWER_PROMPT` 추가 |
 | 5    | 디렉터 모드 그래프       | `graph/director_graph.py` | 4개 에이전트 노드 + REVISE 루프 신규 작성                                      |
 | 6    | CineMateAgent 통합       | `graph/agent_graph.py`    | `mode` 파라미터 추가, `_director_graph` 참조                                   |
-| 7    | Streamlit UI 기초        | `app/streamlit/main.py`   | 사이드바에 팝콘/디렉터 모드 선택 추가                                          |
-| 8    | Streamlit UI (Aesthetic) | `app/streamlit/main.py`   | `sampleUI.html` 수준의 프리미엄 UI 디자인 적용 (§8 참고)                       |
+| 7    | Streamlit UI 기초        | `app.py`                  | 사이드바에 팝콘/디렉터 모드 선택 추가                                          |
+| 8    | Streamlit UI (Aesthetic) | `app.py`                  | `sampleUI.html` 수준의 프리미엄 UI 디자인 적용 (§8 참고)                       |
 
 ---

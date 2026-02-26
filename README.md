@@ -41,7 +41,7 @@ uv run python -c "from core.rag_pipeline import RAGPipeline; RAGPipeline().build
 ### Streamlit UI 실행
 
 ```bash
-uv run streamlit run app/streamlit/main.py
+uv run streamlit run app.py
 # → http://localhost:8501
 ```
 
@@ -53,6 +53,7 @@ uv run uvicorn app.api.main:app --reload --port 8000
 ```
 
 POST `/v1/chat` 예시:
+
 ```bash
 curl -X POST http://localhost:8000/v1/chat \
   -H "Content-Type: application/json" \
@@ -87,20 +88,20 @@ uv run pytest tests/test_agent_graph.py -v -s
 
 ### uv 명령 요약 (참고)
 
-| 명령 | 설명 |
-|------|------|
-| `uv sync` | lockfile 기준으로 의존성 설치 (dev 포함) |
-| `uv sync --no-dev` | 프로덕션 의존성만 설치 |
-| `uv run <cmd>` | 프로젝트 가상환경에서 명령 실행 |
-| `uv add <pkg>` | 패키지 추가 후 lock 갱신 |
-| `uv add --dev <pkg>` | 개발 전용 패키지 추가 |
+| 명령                 | 설명                                     |
+| -------------------- | ---------------------------------------- |
+| `uv sync`            | lockfile 기준으로 의존성 설치 (dev 포함) |
+| `uv sync --no-dev`   | 프로덕션 의존성만 설치                   |
+| `uv run <cmd>`       | 프로젝트 가상환경에서 명령 실행          |
+| `uv add <pkg>`       | 패키지 추가 후 lock 갱신                 |
+| `uv add --dev <pkg>` | 개발 전용 패키지 추가                    |
 
 의존성은 `pyproject.toml`과 `uv.lock`으로 관리됩니다. `requirements.txt`는 사용하지 않습니다.
 
 ### 환경 변수
 
 - **Azure OpenAI (사내망 AOAI)**: `.env`에 `AOAI_ENDPOINT`, `AOAI_API_KEY`, `AOAI_DEPLOY_EMBED_3_SMALL`(임베딩 배포명)을 넣으면 Azure OpenAI를 사용합니다. 선택으로 `AOAI_API_VERSION`(기본 `2024-02-01`)을 지정할 수 있습니다.
-- **OpenAI 직연결**: AOAI_* 를 쓰지 않을 때는 `OPENAI_API_KEY`만 설정하면 됩니다.
+- **OpenAI 직연결**: AOAI\_\* 를 쓰지 않을 때는 `OPENAI_API_KEY`만 설정하면 됩니다.
 - **TMDB API 키 발급 시 "Application URL"**: 개발 단계에서는 실제 서비스 URL이 없어도 됩니다. 아래 중 하나를 넣으면 됩니다.
   - `http://localhost:8501` (로컬 Streamlit 기준)
   - `http://localhost:3000` (로컬 개발 서버)

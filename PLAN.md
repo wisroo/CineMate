@@ -7,12 +7,12 @@
 
 ## 1. 프로젝트 개요
 
-| 항목 | 내용 |
-|------|------|
-| 목표 | 사용자 질문을 자동 분류하여, 작품 내적 질문은 RAG로 심층 해석 제공, 외부 정보 질문은 실시간 검색 도구로 답변하는 Multi-Agent 시스템 |
-| 핵심 가치 | OTT 플랫폼 고객의 세계관 이해도 향상 → 시청 유지율 및 몰입도 증대 |
-| 현재 단계 | Streamlit 기반 프로토타입 (검증용) |
-| 최종 목표 | `core/` + `graph/` 레이어를 그대로 가져가 FastAPI 백엔드에 연동하여 실서비스 배포 |
+| 항목      | 내용                                                                                                                                |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 목표      | 사용자 질문을 자동 분류하여, 작품 내적 질문은 RAG로 심층 해석 제공, 외부 정보 질문은 실시간 검색 도구로 답변하는 Multi-Agent 시스템 |
+| 핵심 가치 | OTT 플랫폼 고객의 세계관 이해도 향상 → 시청 유지율 및 몰입도 증대                                                                   |
+| 현재 단계 | Streamlit 기반 프로토타입 (검증용)                                                                                                  |
+| 최종 목표 | `core/` + `graph/` 레이어를 그대로 가져가 FastAPI 백엔드에 연동하여 실서비스 배포                                                   |
 
 ---
 
@@ -114,11 +114,11 @@ CineMate/
 
 ### 레이어 역할 분리 원칙
 
-| 레이어 | 위치 | 역할 | 외부 의존 |
-|--------|------|------|-----------|
-| 비즈니스 로직 | `core/`, `graph/` | Agent 실행, RAG, 도구 | ❌ 없음 (LangChain만) |
+| 레이어        | 위치                         | 역할                  | 외부 의존              |
+| ------------- | ---------------------------- | --------------------- | ---------------------- |
+| 비즈니스 로직 | `core/`, `graph/`            | Agent 실행, RAG, 도구 | ❌ 없음 (LangChain만)  |
 | 서비스 레이어 | `app/streamlit/`, `app/api/` | 요청 수신 · 응답 반환 | Streamlit 또는 FastAPI |
-| 데이터 레이어 | `data/`, `scripts/` | 수집 · 저장 · 임베딩 | ChromaDB |
+| 데이터 레이어 | `data/`, `scripts/`          | 수집 · 저장 · 임베딩  | ChromaDB               |
 
 ---
 
@@ -145,14 +145,16 @@ class CineMateAgent:
 ```
 
 **Streamlit에서 사용:**
+
 ```python
-# app/streamlit/main.py
+# app.py
 agent = CineMateAgent()
 response = agent.run(user_input, session_id=st.session_state.session_id)
 st.write(response.answer)
 ```
 
 **FastAPI로 확장 시 (코드 변경 없음):**
+
 ```python
 # app/api/routes/chat.py
 agent = CineMateAgent()
@@ -171,14 +173,14 @@ async def chat(request: ChatRequest):
 
 ### 방법 비교
 
-| 방법 | 속도 | 품질 | 비용 | 적합한 경우 |
-|------|------|------|------|------------|
-| Wikipedia API | ⚡ 매우 빠름 | 보통 | 무료 | 빠른 프로토타입 구축 |
-| TMDB API | ⚡ 빠름 | 높음 (구조화) | 무료 | 영화 메타데이터, 줄거리 |
-| IMDb 웹 스크래핑 | 보통 | 높음 | 무료 | 리뷰, 트리비아 |
-| 수동 큐레이션 | 느림 | 매우 높음 | 인건비 | 심층 분석 문서 |
-| PDF 로드 | 보통 | 매우 높음 | 무료 | 학술 논문, 비평 기사 |
-| YouTube Transcript | 보통 | 중간 | 무료 | 영상 리뷰, 해설 |
+| 방법               | 속도         | 품질          | 비용   | 적합한 경우             |
+| ------------------ | ------------ | ------------- | ------ | ----------------------- |
+| Wikipedia API      | ⚡ 매우 빠름 | 보통          | 무료   | 빠른 프로토타입 구축    |
+| TMDB API           | ⚡ 빠름      | 높음 (구조화) | 무료   | 영화 메타데이터, 줄거리 |
+| IMDb 웹 스크래핑   | 보통         | 높음          | 무료   | 리뷰, 트리비아          |
+| 수동 큐레이션      | 느림         | 매우 높음     | 인건비 | 심층 분석 문서          |
+| PDF 로드           | 보통         | 매우 높음     | 무료   | 학술 논문, 비평 기사    |
+| YouTube Transcript | 보통         | 중간          | 무료   | 영상 리뷰, 해설         |
 
 ### 권장 전략 (단계별)
 
@@ -237,15 +239,15 @@ fetchers: list[Fetcher] = [TMDBFetcher(), WikipediaFetcher()]
 
 ### 수집 대상 영화 목록 (초기)
 
-| 시리즈 | 영화 | 수집 방법 |
-|--------|------|----------|
-| Marvel | Avengers: Endgame | TMDB + Wikipedia |
-| Marvel | Black Panther | TMDB + Wikipedia |
+| 시리즈 | 영화                    | 수집 방법        |
+| ------ | ----------------------- | ---------------- |
+| Marvel | Avengers: Endgame       | TMDB + Wikipedia |
+| Marvel | Black Panther           | TMDB + Wikipedia |
 | Marvel | Spider-Man: No Way Home | TMDB + Wikipedia |
-| Marvel | Thor: Ragnarok | TMDB + Wikipedia |
-| Pixar | Inside Out 2 | TMDB + Wikipedia |
-| Pixar | Soul | TMDB + Wikipedia |
-| Pixar | Coco | TMDB + Wikipedia |
+| Marvel | Thor: Ragnarok          | TMDB + Wikipedia |
+| Pixar  | Inside Out 2            | TMDB + Wikipedia |
+| Pixar  | Soul                    | TMDB + Wikipedia |
+| Pixar  | Coco                    | TMDB + Wikipedia |
 
 ---
 
@@ -378,7 +380,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
 
 ```yaml
 services:
-  streamlit:             # 프로토타입 UI
+  streamlit: # 프로토타입 UI
     build:
       context: .
       dockerfile: docker/Dockerfile.streamlit
@@ -386,7 +388,7 @@ services:
     volumes: ["./data:/app/data"]
     env_file: .env
 
-  api:                   # FastAPI 백엔드 (Phase 2)
+  api: # FastAPI 백엔드 (Phase 2)
     build:
       context: .
       dockerfile: docker/Dockerfile.api
@@ -399,19 +401,19 @@ services:
 
 ## 11. 기술 스택
 
-| 구분 | 기술 | 비고 |
-|------|------|------|
-| LLM | GPT-4o-mini | 비용 효율 + 충분한 성능 |
-| Embedding | text-embedding-3-small | 속도/비용 균형 |
-| Vector DB | ChromaDB (local persist) | 설치 간편, 로컬 완결 |
-| Agent Framework | LangChain + LangGraph | 필수 요건 |
-| Memory | LangGraph MemorySaver | 멀티턴 대화 |
-| UI | Streamlit | 현재 단계 |
-| Backend | FastAPI | Phase 2 (선택) |
-| Data 수집 | TMDB API + Wikipedia | 무료, 빠른 구축 |
-| 외부 검색 Tool | Tavily + Wikipedia Tool | ReAct 필수 요건 |
-| 환경변수 | python-dotenv | API 키 보안 관리 |
-| 배포 | Docker + docker-compose | 선택 요건 |
+| 구분            | 기술                     | 비고                    |
+| --------------- | ------------------------ | ----------------------- |
+| LLM             | GPT-4o-mini              | 비용 효율 + 충분한 성능 |
+| Embedding       | text-embedding-3-small   | 속도/비용 균형          |
+| Vector DB       | ChromaDB (local persist) | 설치 간편, 로컬 완결    |
+| Agent Framework | LangChain + LangGraph    | 필수 요건               |
+| Memory          | LangGraph MemorySaver    | 멀티턴 대화             |
+| UI              | Streamlit                | 현재 단계               |
+| Backend         | FastAPI                  | Phase 2 (선택)          |
+| Data 수집       | TMDB API + Wikipedia     | 무료, 빠른 구축         |
+| 외부 검색 Tool  | Tavily + Wikipedia Tool  | ReAct 필수 요건         |
+| 환경변수        | python-dotenv            | API 키 보안 관리        |
+| 배포            | Docker + docker-compose  | 선택 요건               |
 
 ---
 
@@ -419,52 +421,52 @@ services:
 
 ### Day 1: 기반 공사 + RAG 파이프라인
 
-| 시간 | 작업 |
-|------|------|
-| 오전 | requirements.txt, .env.example, 폴더 구조 생성 |
-| 오전 | `graph/schemas.py` - AgentResponse 데이터 모델 정의 |
+| 시간 | 작업                                                            |
+| ---- | --------------------------------------------------------------- |
+| 오전 | requirements.txt, .env.example, 폴더 구조 생성                  |
+| 오전 | `graph/schemas.py` - AgentResponse 데이터 모델 정의             |
 | 오후 | `scripts/ingest_data.py` - TMDB API + Wikipedia로 영화 7편 수집 |
-| 오후 | `core/rag_pipeline.py` - load / split / embed / persist 구현 |
-| 오후 | 단위 테스트: `retriever.invoke("토니 스타크 희생")` 결과 확인 |
+| 오후 | `core/rag_pipeline.py` - load / split / embed / persist 구현    |
+| 오후 | 단위 테스트: `retriever.invoke("토니 스타크 희생")` 결과 확인   |
 
 ### Day 2: Multi-Agent + LangGraph
 
-| 시간 | 작업 |
-|------|------|
-| 오전 | `core/prompts.py` - Router, RAG (CoT+Few-shot), Tool 프롬프트 |
+| 시간 | 작업                                                                   |
+| ---- | ---------------------------------------------------------------------- |
+| 오전 | `core/prompts.py` - Router, RAG (CoT+Few-shot), Tool 프롬프트          |
 | 오전 | `core/tools.py` - `@tool` wikipedia_search, tavily_search, tmdb_search |
-| 오후 | `graph/agent_graph.py` - State, router_node, rag_node, tool_node |
-| 오후 | LangGraph 엣지 연결 + MemorySaver 적용 |
-| 오후 | 통합 테스트 (5가지 질문 시나리오 + 멀티턴 확인) |
+| 오후 | `graph/agent_graph.py` - State, router_node, rag_node, tool_node       |
+| 오후 | LangGraph 엣지 연결 + MemorySaver 적용                                 |
+| 오후 | 통합 테스트 (5가지 질문 시나리오 + 멀티턴 확인)                        |
 
 ### Day 3: Streamlit UI + 마무리
 
-| 시간 | 작업 |
-|------|------|
-| 오전 | `app/streamlit/main.py` - 채팅 UI, 사이드바, 라우팅 배지 |
-| 오전 | `st.session_state`로 thread_id 관리 |
+| 시간 | 작업                                       |
+| ---- | ------------------------------------------ |
+| 오전 | `app.py` - 채팅 UI, 사이드바, 라우팅 배지  |
+| 오전 | `st.session_state`로 thread_id 관리        |
 | 오후 | Dockerfile, docker-compose.yml 작성 (선택) |
-| 오후 | README.md 업데이트, 코드 정리 |
-| 오후 | 과제 보고서 작성 |
+| 오후 | README.md 업데이트, 코드 정리              |
+| 오후 | 과제 보고서 작성                           |
 
 ---
 
 ## 13. 평가 요건 체크리스트
 
-| 요건 | 구현 위치 | 상태 |
-|------|-----------|------|
-| Prompt Engineering (Role/CoT/Few-shot) | `core/prompts.py` | 📋 |
-| LangGraph Multi-Agent | `graph/agent_graph.py` | 📋 |
-| ReAct Tool Agent | `graph/agent_graph.py` + `core/tools.py` | 📋 |
-| 멀티턴 대화 Memory | LangGraph MemorySaver | 📋 |
-| 원본 데이터 수집 및 전처리 | `scripts/ingest_data.py` | 📋 |
-| ChromaDB Vector DB | `core/rag_pipeline.py` | 📋 |
-| RAG 지식 검색 | `graph/agent_graph.py` rag_node | 📋 |
-| Streamlit UI | `app/streamlit/main.py` | 📋 |
-| FastAPI 백엔드 | `app/api/` (선택) | 📋 |
-| Docker 배포 | `docker/` (선택) | 📋 |
-| 환경변수 관리 | `.env` + `python-dotenv` | 📋 |
-| 파일 모듈화 | 전체 구조 | 📋 |
+| 요건                                   | 구현 위치                                | 상태 |
+| -------------------------------------- | ---------------------------------------- | ---- |
+| Prompt Engineering (Role/CoT/Few-shot) | `core/prompts.py`                        | 📋   |
+| LangGraph Multi-Agent                  | `graph/agent_graph.py`                   | 📋   |
+| ReAct Tool Agent                       | `graph/agent_graph.py` + `core/tools.py` | 📋   |
+| 멀티턴 대화 Memory                     | LangGraph MemorySaver                    | 📋   |
+| 원본 데이터 수집 및 전처리             | `scripts/ingest_data.py`                 | 📋   |
+| ChromaDB Vector DB                     | `core/rag_pipeline.py`                   | 📋   |
+| RAG 지식 검색                          | `graph/agent_graph.py` rag_node          | 📋   |
+| Streamlit UI                           | `app.py`                                 | 📋   |
+| FastAPI 백엔드                         | `app/api/` (선택)                        | 📋   |
+| Docker 배포                            | `docker/` (선택)                         | 📋   |
+| 환경변수 관리                          | `.env` + `python-dotenv`                 | 📋   |
+| 파일 모듈화                            | 전체 구조                                | 📋   |
 
 ---
 
