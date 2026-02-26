@@ -1,5 +1,7 @@
 """
-POST /v1/chat 엔드포인트.
+app/api/routes/chat.py
+
+POST /v1/chat 엔드포인트: CineMateAgent를 호출해 채팅 응답을 반환한다.
 """
 
 from fastapi import APIRouter, Request

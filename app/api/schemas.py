@@ -1,5 +1,7 @@
 """
-FastAPI 요청/응답 Pydantic 모델.
+app/api/schemas.py
+
+FastAPI 요청/응답 Pydantic 모델: ChatRequest, ChatResponse.
 """
 
 from pydantic import BaseModel
