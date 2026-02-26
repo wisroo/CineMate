@@ -1,8 +1,13 @@
 """
-LangGraph Multi-Agent 그래프: router → rag_node | tool_node.
+graph/agent_graph.py
+
+LangGraph Multi-Agent 그래프: translation → router → (rag_node | tool_agent).
 
 그래프 흐름:
-  START → router_node → (conditional) rag_node | tool_node → END
+  START → translation_node → router_node
+  router_node → (conditional) rag_node | tool_agent
+  tool_agent → (conditional) tools_node | END
+  tools_node → tool_agent
 
 Memory:
   InMemorySaver checkpointer로 thread_id 기반 멀티턴 대화 상태를 보존한다.
@@ -13,13 +18,18 @@ import os
 from typing import Annotated, Literal
 
 from dotenv import load_dotenv
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from typing_extensions import TypedDict
 
-from core.prompts import RAG_SYSTEM_PROMPT, ROUTER_PROMPT, TOOL_SYSTEM_PROMPT
+from core.prompts import (
+    RAG_SYSTEM_PROMPT,
+    ROUTER_PROMPT,
+    TOOL_SYSTEM_PROMPT,
+    TRANSLATION_PROMPT,
+)
 from core.rag_pipeline import RAGPipeline
 from core.tools import TOOLS
 from graph.schemas import AgentResponse
@@ -57,9 +67,10 @@ _llm_with_tools = _llm.bind_tools(TOOLS)
 _tool_map = {t.name: t for t in TOOLS}
 
 
-class CineMateState(TypedDict):
+class ChatState(TypedDict):
     messages: Annotated[list, add_messages]
     query: str
+    english_query: str
     route: Literal["rag", "tool"]
     retrieved_context: str
     agent_used: str
@@ -67,9 +78,26 @@ class CineMateState(TypedDict):
     final_answer: str
 
 
-def router_node(state: CineMateState) -> dict:
+def translation_node(state: ChatState) -> dict:
+    """사용자의 원본 질문을 영문으로 번역하여 검색 쿼리 품질을 높인다."""
+    query = state.get("query")
+    if not query and state.get("messages"):
+        query = str(state["messages"][-1].content)
+
+    prompt = TRANSLATION_PROMPT.format(query=query)
+    response = _llm.invoke([HumanMessage(content=prompt)])
+    english_query = str(response.content).strip()
+    logger.info("Translated Query: %s -> %s", query, english_query)
+
+    return {"english_query": english_query}
+
+
+def router_node(state: ChatState) -> dict:
     """질문을 분석해 'rag' 또는 'tool' 경로를 결정한다."""
-    query = state["query"]
+    query = state.get("query")
+    if not query and state.get("messages"):
+        query = str(state["messages"][-1].content)
+
     prompt = ROUTER_PROMPT.format(query=query)
     response = _llm.invoke([HumanMessage(content=prompt)])
     raw = response.content.strip().lower()
@@ -78,51 +106,34 @@ def router_node(state: CineMateState) -> dict:
     return {"route": route}
 
 
-# 한국어 질문 시 벡터 검색 품질을 위해 영문 키워드를 붙여 재검색할 때 사용
-_RAG_QUERY_KEYWORDS = [
-    ("엔드게임", "Avengers Endgame Tony Stark"),
-    ("토니", "Tony Stark Iron Man"),
-    ("스타크", "Tony Stark"),
-    ("블랙 팬서", "Black Panther"),
-    ("스파이더맨", "Spider-Man No Way Home"),
-    ("소울", "Soul 22"),
-    ("코코", "Coco Hector"),
-    ("헥터", "Coco Hector"),
-    ("인사이드 아웃", "Inside Out"),
-    ("토르", "Thor Ragnarok"),
-]
-
-
-def _retrieval_query(query: str) -> str:
-    """한국어 포함 시 영문 키워드를 붙여 검색 정확도를 높인다."""
-    added = []
-    for kr, en in _RAG_QUERY_KEYWORDS:
-        if kr in query and en not in added:
-            added.append(en)
-    if added:
-        return f"{query} {' '.join(added)}"
-    return query
-
-
-def rag_node(state: CineMateState) -> dict:
+def rag_node(state: ChatState) -> dict:
     """ChromaDB에서 관련 문서를 검색하고 CoT 프롬프트로 LLM 답변을 생성한다."""
-    query = state["query"]
+    query = state.get("query")
+    if not query and state.get("messages"):
+        query = str(state["messages"][-1].content)
+
+    english_query = state.get("english_query", query)
 
     pipeline = RAGPipeline()
     try:
         retriever = pipeline.get_retriever(k=4)
-        retrieval_query = _retrieval_query(query)
-        docs = retriever.invoke(retrieval_query)
+        docs = retriever.invoke(english_query)
+        logger.info("RAG invoked with english_query: %s", english_query)
     except RuntimeError as e:
         logger.error("RAG retrieval failed: %s", e)
         raise
 
     context = "\n\n".join(doc.page_content for doc in docs)
-    sources = list({doc.metadata.get("source", "") for doc in docs if doc.metadata.get("source")})
+    sources = list(
+        {doc.metadata.get("source", "") for doc in docs if doc.metadata.get("source")}
+    )
 
     prompt = RAG_SYSTEM_PROMPT.format(context=context, question=query)
-    response = _llm.invoke([HumanMessage(content=prompt)])
-    answer = response.content
+    messages = state.get("messages", [])[-10:]
+    invoke_msgs = [SystemMessage(content=prompt)] + messages
+
+    response = _llm.invoke(invoke_msgs)
+    answer = str(response.content)
 
     return {
         "retrieved_context": context,
@@ -133,68 +144,102 @@ def rag_node(state: CineMateState) -> dict:
     }
 
 
-def tool_node(state: CineMateState) -> dict:
-    """ReAct 루프: LLM이 도구 호출을 멈출 때까지 반복 실행 후 최종 답변을 반환한다."""
-    query = state["query"]
-    messages = [
-        HumanMessage(content=TOOL_SYSTEM_PROMPT),
-        HumanMessage(content=query),
-    ]
-    sources: list[str] = []
+def tool_agent(state: ChatState) -> dict:
+    """ReAct 루프: LLM을 호출하여 도구를 선택하거나 최종 답변을 생성한다."""
+    english_query = state.get("english_query", "")
+    system_prompt = TOOL_SYSTEM_PROMPT
+    if english_query:
+        system_prompt += f"\n\nSearch keywords constraint: You MUST prioritize using '{english_query}' when translating user intent to tool arguments."
 
-    for _ in range(5):
-        response = _llm_with_tools.invoke(messages)
-        messages.append(response)
+    messages = state.get("messages", [])[-10:]
+    invoke_msgs = [SystemMessage(content=system_prompt)] + messages
 
-        if not response.tool_calls:
-            break
+    response = _llm_with_tools.invoke(invoke_msgs)
 
-        for call in response.tool_calls:
-            tool_fn = _tool_map.get(call["name"])
-            if tool_fn is None:
-                tool_result = f"Unknown tool: {call['name']}"
-            else:
-                try:
-                    tool_result = tool_fn.invoke(call["args"])
-                except Exception as e:
-                    logger.error("Tool %s failed: %s", call["name"], e)
-                    tool_result = f"Tool error: {e}"
+    result = {
+        "messages": [response],
+        "agent_used": "Tool Agent",
+    }
 
-            if isinstance(tool_result, str) and tool_result.startswith("[") and "](" in tool_result:
-                sources.append(tool_result.split("](")[1].split(")")[0])
+    if not response.tool_calls:
+        result["final_answer"] = str(response.content)
 
-            messages.append(
-                ToolMessage(content=str(tool_result), tool_call_id=call["id"])
-            )
+    return result
 
-    final_message = next(
-        (m for m in reversed(messages) if isinstance(m, AIMessage) and not m.tool_calls),
-        None,
-    )
-    answer = final_message.content if final_message else "도구 검색 결과를 요약하지 못했습니다."
+
+def tools_node(state: ChatState) -> dict:
+    """에이전트가 선택한 도구를 실행하고 결과를 반환한다."""
+    messages = state.get("messages", [])
+    last_message = messages[-1]
+
+    new_messages = []
+    new_sources = state.get("sources", [])
+    if new_sources is None:
+        new_sources = []
+    sources_copy = list(new_sources)
+
+    for call in last_message.tool_calls:  # type: ignore
+        tool_fn = _tool_map.get(call["name"])
+        if tool_fn is None:
+            tool_result = f"Unknown tool: {call['name']}"
+        else:
+            try:
+                tool_result = tool_fn.invoke(call["args"])
+            except Exception as e:
+                logger.error("Tool %s failed: %s", call["name"], e)
+                tool_result = f"Tool error: {e}"
+
+        if (
+            isinstance(tool_result, str)
+            and tool_result.startswith("[")
+            and "](" in tool_result
+        ):
+            source = tool_result.split("](")[1].split(")")[0]
+            if source not in sources_copy:
+                sources_copy.append(source)
+
+        new_messages.append(
+            ToolMessage(content=str(tool_result), tool_call_id=call["id"])
+        )
 
     return {
-        "final_answer": answer,
-        "sources": sources,
-        "agent_used": "Tool Agent",
-        "messages": [AIMessage(content=answer)],
+        "messages": new_messages,
+        "sources": sources_copy,
     }
 
 
-def _route_selector(state: CineMateState) -> Literal["rag", "tool"]:
+def _route_selector(state: ChatState) -> Literal["rag", "tool"]:
     return state["route"]
 
 
+def _should_continue(state: ChatState) -> Literal["tools_node", "end"]:
+    messages = state.get("messages", [])
+    last_message = messages[-1]
+    if getattr(last_message, "tool_calls", None):
+        return "tools_node"
+    return "end"
+
+
 def _build_graph() -> StateGraph:
-    builder = StateGraph(CineMateState)
+    builder = StateGraph(ChatState)
+    builder.add_node("translation_node", translation_node)
     builder.add_node("router", router_node)
     builder.add_node("rag", rag_node)
-    builder.add_node("tool", tool_node)
+    builder.add_node("tool_agent", tool_agent)
+    builder.add_node("tools_node", tools_node)
 
-    builder.add_edge(START, "router")
-    builder.add_conditional_edges("router", _route_selector, {"rag": "rag", "tool": "tool"})
+    builder.add_edge(START, "translation_node")
+    builder.add_edge("translation_node", "router")
+    builder.add_conditional_edges(
+        "router", _route_selector, {"rag": "rag", "tool": "tool_agent"}
+    )
+
+    builder.add_conditional_edges(
+        "tool_agent", _should_continue, {"tools_node": "tools_node", "end": END}
+    )
+    builder.add_edge("tools_node", "tool_agent")
+
     builder.add_edge("rag", END)
-    builder.add_edge("tool", END)
 
     checkpointer = InMemorySaver()
     return builder.compile(checkpointer=checkpointer)
@@ -203,10 +248,47 @@ def _build_graph() -> StateGraph:
 _graph = _build_graph()
 
 
+# 디렉터 모드 그래프 (순환 참조 방지를 위해 런타임에 import)
+def _get_director_graph():
+    from graph.director_graph import _director_graph
+
+    return _director_graph
+
+
 class CineMateAgent:
     """UI/API 무관 단일 진입점. Streamlit·FastAPI·CLI 모두 이 클래스만 사용한다."""
 
-    def run(self, query: str, session_id: str = "default") -> AgentResponse:
+    def run(
+        self,
+        query: str,
+        session_id: str = "default",
+        mode: Literal["chat", "director"] = "chat",
+    ) -> AgentResponse:
+        if mode == "director":
+            director_graph = _get_director_graph()
+            final_state = director_graph.invoke(
+                {
+                    "messages": [HumanMessage(content=query)],
+                    "query": query,
+                    "english_query": "",
+                    "raw_data": "",
+                    "draft": "",
+                    "final_draft": "",
+                    "revision_count": 0,
+                    "review_feedback": "",
+                    "verdict": "",
+                    "sources": [],
+                    "agent_used": "",
+                }
+            )
+            return AgentResponse(
+                answer=final_state.get("final_draft", ""),
+                agent_used=final_state.get("agent_used", ""),
+                sources=final_state.get("sources", []),
+                session_id=session_id,
+            )
+
+        # mode == "chat" (팝콘 모드)
         config = {"configurable": {"thread_id": session_id}}
         final_state = _graph.invoke(
             {"messages": [HumanMessage(content=query)], "query": query},
