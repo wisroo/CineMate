@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineMate - Disney/Pixar/Marvel AI Explorer</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #0f172a; /* Slate 900 - Cinematic Dark */
+            color: #f8fafc;
+            overflow: hidden;
+        }
+        
+        /* Custom Scrollbar for chat */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* Transitions */
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Mode Gradients */
+        .bg-popcorn { background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%); }
+        .bg-director { background: linear-gradient(135deg, #3b82f6 0%, #4338ca 100%); }
+        
+        .hover-scale { transition: transform 0.2s ease; }
+        .hover-scale:hover { transform: scale(1.02); }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col antialiased">
+
+    <!-- ========================================== -->
+    <!-- VIEW 1: ENTRY PAGE (Mode Selection)        -->
+    <!-- ========================================== -->
+    <div id="entry-view" class="absolute inset-0 z-50 flex flex-col md:flex-row h-full w-full bg-slate-900 transition-opacity duration-500">
+        
+        <!-- Popcorn Mode Panel -->
+        <div onclick="enterApp('popcorn')" class="group relative flex-1 flex flex-col items-center justify-center cursor-pointer border-b md:border-b-0 md:border-r border-slate-800 hover:bg-slate-800/50 transition-all duration-300 overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div class="z-10 text-center hover-scale p-8">
+                <div class="w-20 h-20 mx-auto bg-amber-500 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-amber-500/30">
+                    <i data-lucide="popcorn" class="w-10 h-10 text-white"></i>
+                </div>
+                <h2 class="text-4xl font-bold text-white mb-4 tracking-tight">팝콘 모드</h2>
+                <p class="text-slate-400 max-w-sm mx-auto text-lg">가볍게 즐기는 영화 정보<br>줄거리, 쿠키 영상, 등장인물 팩트 체크</p>
+                <div class="mt-8 text-amber-500 font-semibold opacity-0 group-hover:opacity-100 transition-opacity transition-transform transform translate-y-4 group-hover:translate-y-0">탐험 시작하기 &rarr;</div>
+            </div>
+        </div>
+
+        <!-- Director Mode Panel -->
+        <div onclick="enterApp('director')" class="group relative flex-1 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-800/50 transition-all duration-300 overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div class="z-10 text-center hover-scale p-8">
+                <div class="w-20 h-20 mx-auto bg-indigo-500 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-indigo-500/30">
+                    <i data-lucide="clapperboard" class="w-10 h-10 text-white"></i>
+                </div>
+                <h2 class="text-4xl font-bold text-white mb-4 tracking-tight">디렉터 모드</h2>
+                <p class="text-slate-400 max-w-sm mx-auto text-lg">감독의 시선으로 보는 심층 분석<br>세계관 연결, 캐릭터 심리, 숨겨진 메타포</p>
+                <div class="mt-8 text-indigo-400 font-semibold opacity-0 group-hover:opacity-100 transition-opacity transition-transform transform translate-y-4 group-hover:translate-y-0">심층 분석 시작하기 &rarr;</div>
+            </div>
+        </div>
+        
+        <!-- Center Logo on Landing -->
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none hidden md:flex flex-col items-center">
+            <div class="bg-slate-900 px-6 py-3 rounded-full border border-slate-700 shadow-2xl flex items-center gap-3">
+                <i data-lucide="film" class="w-6 h-6 text-slate-300"></i>
+                <span class="text-2xl font-black tracking-wider text-white">CineMate</span>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- VIEW 2: MAIN CHAT INTERFACE                -->
+    <!-- ========================================== -->
+    <div id="main-view" class="hidden h-full w-full flex bg-slate-900">
+        
+        <!-- Sidebar (Hidden on small screens, expandable) -->
+        <aside class="w-72 border-r border-slate-800 flex-col hidden md:flex bg-slate-900/50 backdrop-blur-md">
+            <div class="p-6 border-b border-slate-800 flex items-center gap-3 cursor-pointer" onclick="showEntry()">
+                <i data-lucide="film" class="w-6 h-6 text-indigo-400"></i>
+                <span class="text-xl font-bold tracking-wider">CineMate</span>
+            </div>
+            
+            <div class="p-4 flex-1 overflow-y-auto">
+                <div class="text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider">최근 탐험 기록</div>
+                <div class="space-y-2">
+                    <button class="w-full text-left p-3 rounded-lg hover:bg-slate-800 transition text-sm text-slate-300 truncate flex items-center gap-3">
+                        <i data-lucide="message-square" class="w-4 h-4 text-slate-500"></i>
+                        코코 헥터의 진짜 정체
+                    </button>
+                    <button class="w-full text-left p-3 rounded-lg hover:bg-slate-800 transition text-sm text-slate-300 truncate flex items-center gap-3">
+                        <i data-lucide="message-square" class="w-4 h-4 text-slate-500"></i>
+                        엔드게임 토니의 희생
+                    </button>
+                </div>
+
+                <div class="mt-8 text-xs font-semibold text-slate-500 mb-4 uppercase tracking-wider">데이터베이스</div>
+                <div class="space-y-1">
+                    <div class="flex items-center gap-2 text-sm text-slate-400 p-2"><span class="w-2 h-2 rounded-full bg-green-500"></span> MCU Phase 4-5</div>
+                    <div class="flex items-center gap-2 text-sm text-slate-400 p-2"><span class="w-2 h-2 rounded-full bg-green-500"></span> Pixar Animation</div>
+                </div>
+            </div>
+            
+            <!-- User Profile Area -->
+            <div class="p-4 border-t border-slate-800 flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500"></div>
+                <div class="text-sm font-medium">SK AX Engineer</div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="flex-1 flex flex-col h-full relative">
+            
+            <!-- Header (Mode Switcher) -->
+            <header class="h-16 border-b border-slate-800 flex items-center justify-between px-6 bg-slate-900/80 backdrop-blur-sm z-10 relative">
+                <div class="flex items-center gap-2 md:hidden cursor-pointer" onclick="showEntry()">
+                    <i data-lucide="film" class="w-5 h-5 text-indigo-400"></i>
+                    <span class="font-bold">CineMate</span>
+                </div>
+                
+                <!-- Dynamic Mode Indicator -->
+                <div class="mx-auto md:mx-0 flex bg-slate-800 p-1 rounded-full">
+                    <button id="btn-popcorn" onclick="switchMode('popcorn')" class="flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors text-slate-400 hover:text-white">
+                        <i data-lucide="popcorn" class="w-4 h-4"></i> 팝콘 모드
+                    </button>
+                    <button id="btn-director" onclick="switchMode('director')" class="flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors bg-indigo-500 text-white shadow-md">
+                        <i data-lucide="clapperboard" class="w-4 h-4"></i> 디렉터 모드
+                    </button>
+                </div>
+                
+                <div class="hidden md:flex items-center gap-4">
+                    <button class="text-slate-400 hover:text-white transition"><i data-lucide="settings" class="w-5 h-5"></i></button>
+                </div>
+            </header>
+
+            <!-- Chat Scroll Area -->
+            <div id="chat-container" class="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 scroll-smooth pb-32">
+                
+                <!-- Welcome/Empty State (Replaces cluttered sidebar suggestions) -->
+                <div id="empty-state" class="flex flex-col items-center justify-center h-full max-w-2xl mx-auto text-center mt-10">
+                    <div id="mode-icon-large" class="w-16 h-16 rounded-2xl bg-indigo-500/20 flex items-center justify-center mb-6 border border-indigo-500/30">
+                        <i data-lucide="clapperboard" class="w-8 h-8 text-indigo-400"></i>
+                    </div>
+                    <h1 class="text-3xl font-bold mb-3 text-white">무엇을 분석해 드릴까요?</h1>
+                    <p class="text-slate-400 mb-8 max-w-md">디렉터 모드가 활성화되었습니다. 다중 에이전트가 문맥, 캐릭터 심리, 세계관을 심층 분석합니다.</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                        <button class="p-4 rounded-xl bg-slate-800/50 border border-slate-700 hover:border-indigo-500/50 hover:bg-slate-800 transition text-left group">
+                            <div class="text-sm font-semibold text-white mb-1 group-hover:text-indigo-400 transition">인사이드 아웃 2</div>
+                            <div class="text-xs text-slate-400">불안이가 통제판을 잡았을 때의 연출적 의미는?</div>
+                        </button>
+                        <button class="p-4 rounded-xl bg-slate-800/50 border border-slate-700 hover:border-indigo-500/50 hover:bg-slate-800 transition text-left group">
+                            <div class="text-sm font-semibold text-white mb-1 group-hover:text-indigo-400 transition">코코 (Coco)</div>
+                            <div class="text-xs text-slate-400">헥터의 정체가 영화의 주제 의식에 미치는 영향</div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Example Conversation (Hidden initially, shown for demo) -->
+                <div id="demo-chat" class="hidden max-w-4xl mx-auto space-y-8 fade-in">
+                    <!-- User Message -->
+                    <div class="flex gap-4 items-start flex-row-reverse">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex-shrink-0 mt-1"></div>
+                        <div class="bg-slate-700/50 text-white px-5 py-3 rounded-2xl rounded-tr-sm max-w-[80%] text-sm md:text-base leading-relaxed">
+                            코코에서 헥터의 진짜 정체는?
+                        </div>
+                    </div>
+
+                    <!-- AI Response (Director Mode Style) -->
+                    <div class="flex gap-4 items-start">
+                        <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center flex-shrink-0 mt-1 shadow-lg shadow-indigo-500/20">
+                            <i data-lucide="sparkles" class="w-4 h-4 text-white"></i>
+                        </div>
+                        <div class="flex-1 space-y-4 max-w-[90%] md:max-w-[85%]">
+                            
+                            <!-- Agent Status / Reflexion UI (Replaces the raw green text) -->
+                            <details class="group bg-slate-800/50 border border-slate-700 rounded-lg p-3 cursor-pointer text-sm">
+                                <summary class="flex items-center gap-2 font-medium text-slate-300 list-none">
+                                    <i data-lucide="cpu" class="w-4 h-4 text-indigo-400"></i>
+                                    <span>LangGraph Agent 분석 프로세스 (4단계 완료)</span>
+                                    <i data-lucide="chevron-down" class="w-4 h-4 ml-auto transition-transform group-open:rotate-180"></i>
+                                </summary>
+                                <div class="mt-3 pl-6 border-l-2 border-slate-700 space-y-2 text-slate-400 text-xs font-mono">
+                                    <div class="flex items-center gap-2"><i data-lucide="check-circle-2" class="w-3 h-3 text-green-500"></i> Researcher: RAG 문서 및 위키피디아 교차 검증 완료</div>
+                                    <div class="flex items-center gap-2"><i data-lucide="check-circle-2" class="w-3 h-3 text-green-500"></i> Analyst: 가족의 의미와 멕시코 전통 문화 맥락 분석</div>
+                                    <div class="flex items-center gap-2"><i data-lucide="rotate-cw" class="w-3 h-3 text-amber-500"></i> Reviewer: 스포일러 경고 누락 감지 -> 재작성 지시 (Reflexion)</div>
+                                    <div class="flex items-center gap-2"><i data-lucide="check-circle-2" class="w-3 h-3 text-green-500"></i> Editor: 디즈니 톤앤매너 윤문 및 최종 승인</div>
+                                    <div class="mt-2 text-indigo-400 cursor-pointer hover:underline">참고 문서: coco_script_v2.txt</div>
+                                </div>
+                            </details>
+
+                            <!-- Cleanly Formatted Answer -->
+                            <div class="text-slate-200 text-sm md:text-base leading-relaxed space-y-4">
+                                <p><strong>💡 주의: 이 답변은 영화 «코코(Coco)»의 핵심 반전을 포함하고 있습니다.</strong></p>
+                                <p>헥터(Héctor)의 진짜 정체는 바로 주인공 미겔의 <strong>실제 증조할아버지</strong>이자, 마마 코코(Mama Coco)의 사랑하는 아버지입니다.</p>
+                                
+                                <div class="bg-slate-800/50 p-4 rounded-xl border-l-4 border-indigo-500 mt-4">
+                                    <h4 class="font-bold text-white mb-2 flex items-center gap-2">
+                                        <i data-lucide="glasses" class="w-4 h-4"></i> 디렉터 심층 분석
+                                    </h4>
+                                    <p class="text-sm text-slate-300 mb-2">단순한 혈연관계를 넘어, 헥터의 정체는 픽사가 전달하고자 하는 핵심 메시지와 맞닿아 있습니다.</p>
+                                    <ul class="list-disc pl-5 space-y-1 text-sm text-slate-300 marker:text-indigo-500">
+                                        <li><strong>기억의 영속성:</strong> '진정한 죽음은 이승의 마지막 사람이 그를 잊었을 때'라는 멕시코 전통 세계관을 대변하는 인물입니다.</li>
+                                        <li><strong>오해와 화해:</strong> 가족을 버린 음악가로 오해받았으나, 실제로는 가족에게 돌아가려다 살해당한 비극적 서사를 통해 가족 간의 용서와 유대감 회복을 이끌어냅니다.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <!-- Feedback Actions -->
+                            <div class="flex items-center gap-2 pt-2">
+                                <button class="p-1.5 text-slate-500 hover:text-white hover:bg-slate-800 rounded transition"><i data-lucide="thumbs-up" class="w-4 h-4"></i></button>
+                                <button class="p-1.5 text-slate-500 hover:text-white hover:bg-slate-800 rounded transition"><i data-lucide="thumbs-down" class="w-4 h-4"></i></button>
+                                <button class="p-1.5 text-slate-500 hover:text-white hover:bg-slate-800 rounded transition ml-auto flex items-center gap-1 text-xs"><i data-lucide="share" class="w-3 h-3"></i> 인사이트 공유</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Input Area (Fixed at bottom) -->
+            <div class="p-4 md:p-6 bg-gradient-to-t from-slate-900 via-slate-900 to-transparent absolute bottom-0 left-0 w-full">
+                <div class="max-w-4xl mx-auto relative">
+                    <div class="absolute inset-y-0 left-4 flex items-center">
+                        <button class="text-slate-400 hover:text-white transition"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
+                    </div>
+                    <input type="text" placeholder="영화, 캐릭터, 세계관에 대해 질문해보세요..." 
+                           class="w-full bg-slate-800 border border-slate-700 text-white rounded-2xl pl-12 pr-14 py-4 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-lg placeholder-slate-500">
+                    <button class="absolute inset-y-2 right-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl px-3 transition-colors flex items-center justify-center" onclick="simulateChat()">
+                        <i data-lucide="arrow-up" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div class="text-center mt-2 text-xs text-slate-500">
+                    AI Agent는 실수가 있을 수 있습니다. 중요한 팩트는 한 번 더 확인해주세요.
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // State
+        let currentMode = 'director';
+
+        // View Transitions
+        function enterApp(mode) {
+            const entryView = document.getElementById('entry-view');
+            const mainView = document.getElementById('main-view');
+            
+            entryView.style.opacity = '0';
+            setTimeout(() => {
+                entryView.classList.add('hidden');
+                mainView.classList.remove('hidden');
+                switchMode(mode);
+            }, 500);
+        }
+
+        function showEntry() {
+            const entryView = document.getElementById('entry-view');
+            const mainView = document.getElementById('main-view');
+            
+            mainView.classList.add('hidden');
+            entryView.classList.remove('hidden');
+            // trigger reflow
+            void entryView.offsetWidth;
+            entryView.style.opacity = '1';
+        }
+
+        // Mode Switching Logic
+        function switchMode(mode) {
+            currentMode = mode;
+            const btnPopcorn = document.getElementById('btn-popcorn');
+            const btnDirector = document.getElementById('btn-director');
+            const iconLarge = document.getElementById('mode-icon-large');
+            const modeTitle = document.querySelector('#empty-state h1');
+            const modeDesc = document.querySelector('#empty-state p');
+
+            if(mode === 'popcorn') {
+                // UI Toggle
+                btnPopcorn.className = "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors bg-amber-500 text-white shadow-md";
+                btnDirector.className = "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors text-slate-400 hover:text-white";
+                
+                // Empty State Update
+                iconLarge.className = "w-16 h-16 rounded-2xl bg-amber-500/20 flex items-center justify-center mb-6 border border-amber-500/30";
+                iconLarge.innerHTML = '<i data-lucide="popcorn" class="w-8 h-8 text-amber-500"></i>';
+                modeTitle.textContent = "어떤 영화가 궁금하신가요?";
+                modeDesc.textContent = "팝콘 모드가 활성화되었습니다. 단일 에이전트가 빠르고 정확한 팩트 체크를 제공합니다.";
+            } else {
+                // UI Toggle
+                btnDirector.className = "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors bg-indigo-500 text-white shadow-md";
+                btnPopcorn.className = "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors text-slate-400 hover:text-white";
+                
+                // Empty State Update
+                iconLarge.className = "w-16 h-16 rounded-2xl bg-indigo-500/20 flex items-center justify-center mb-6 border border-indigo-500/30";
+                iconLarge.innerHTML = '<i data-lucide="clapperboard" class="w-8 h-8 text-indigo-400"></i>';
+                modeTitle.textContent = "무엇을 분석해 드릴까요?";
+                modeDesc.textContent = "디렉터 모드가 활성화되었습니다. 다중 에이전트가 문맥, 캐릭터 심리, 세계관을 심층 분석합니다.";
+            }
+            lucide.createIcons(); // Re-render icons
+            
+            // Reset chat for demo
+            document.getElementById('empty-state').classList.remove('hidden');
+            document.getElementById('demo-chat').classList.add('hidden');
+            document.querySelector('input[type="text"]').value = '';
+        }
+
+        // Simulate sending a message
+        function simulateChat() {
+            const input = document.querySelector('input[type="text"]');
+            if(input.value.trim() === '') input.value = "코코에서 헥터의 진짜 정체는?"; // Auto-fill for demo
+            
+            document.getElementById('empty-state').classList.add('hidden');
+            const chatBox = document.getElementById('demo-chat');
+            chatBox.classList.remove('hidden');
+            
+            // Scroll to bottom
+            const container = document.getElementById('chat-container');
+            container.scrollTop = container.scrollHeight;
+        }
+    </script>
+</body>
+</html>
