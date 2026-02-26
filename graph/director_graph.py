@@ -11,6 +11,7 @@ graph/director_graph.py
            → REVISE & count >= 2 → END (force stop)
 """
 
+import concurrent.futures
 import logging
 import os
 import re
@@ -54,9 +55,7 @@ def _create_llm():
         from langchain_openai import ChatOpenAI
 
         return ChatOpenAI(model="gpt-4o-mini", temperature=0)
-    raise RuntimeError(
-        "Set either AOAI_API_KEY + AOAI_ENDPOINT (Azure) or OPENAI_API_KEY in .env"
-    )
+    raise RuntimeError("Set either AOAI_API_KEY + AOAI_ENDPOINT (Azure) or OPENAI_API_KEY in .env")
 
 
 _llm = _create_llm()
@@ -93,9 +92,7 @@ def researcher_agent(state: DeepState) -> dict:
     # 첫 진입 시 영어 쿼리를 메시지로 삽입해 도구 활용을 유도
     if not messages or not any("rag_search" in str(m) for m in messages):
         messages = [
-            HumanMessage(
-                content=f"Research the following question thoroughly: {english_query}"
-            )
+            HumanMessage(content=f"Research the following question thoroughly: {english_query}")
         ]
 
     invoke_msgs = [system_msg] + messages
@@ -113,36 +110,37 @@ def researcher_agent(state: DeepState) -> dict:
 
 
 def researcher_tools_node(state: DeepState) -> dict:
-    """Researcher가 선택한 도구를 실행한다."""
+    """Researcher가 선택한 도구를 실행한다. 도구가 여러 개일 경우 병렬로 실행하여 응답 속도를 높인다."""
     messages = state.get("messages", [])
     last_message = messages[-1]
 
     new_messages = []
     sources: list[str] = list(state.get("sources") or [])
 
-    for call in last_message.tool_calls:  # type: ignore
+    # 실행할 도구 목록이 없으면 바로 반환
+    if not hasattr(last_message, "tool_calls") or not last_message.tool_calls:
+        return {"messages": new_messages, "sources": sources}
+
+    def _invoke_tool(call: dict) -> tuple[dict, any]:
         tool_fn = _tool_map.get(call["name"])
         if tool_fn is None:
-            tool_result = f"Unknown tool: {call['name']}"
-        else:
-            try:
-                tool_result = tool_fn.invoke(call["args"])
-            except Exception as e:
-                logger.error("[Director] Tool %s failed: %s", call["name"], e)
-                tool_result = f"Tool error: {e}"
+            return call, f"Unknown tool: {call['name']}"
+        try:
+            return call, tool_fn.invoke(call["args"])
+        except Exception as e:
+            logger.error("[Director] Tool %s failed: %s", call["name"], e)
+            return call, f"Tool error: {e}"
 
-        if (
-            isinstance(tool_result, str)
-            and tool_result.startswith("[")
-            and "](" in tool_result
-        ):
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        results = list(executor.map(_invoke_tool, last_message.tool_calls))
+
+    for call, tool_result in results:
+        if isinstance(tool_result, str) and tool_result.startswith("[") and "](" in tool_result:
             source = tool_result.split("](")[1].split(")")[0]
             if source not in sources:
                 sources.append(source)
 
-        new_messages.append(
-            ToolMessage(content=str(tool_result), tool_call_id=call["id"])
-        )
+        new_messages.append(ToolMessage(content=str(tool_result), tool_call_id=call["id"]))
 
     return {"messages": new_messages, "sources": sources}
 
