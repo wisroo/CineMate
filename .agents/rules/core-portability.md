@@ -1,7 +1,6 @@
 ---
 description: core/와 graph/의 이식성 원칙 - UI 교체 없이 실서비스 연동 가능하도록
 globs: core/**/*.py,graph/**/*.py
-alwaysApply: false
 ---
 
 # 비즈니스 로직 이식성 원칙

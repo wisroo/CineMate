@@ -1,6 +1,5 @@
 ---
 description: CineMate 프로젝트 레이어 구조 및 모듈 배치 원칙
-alwaysApply: true
 ---
 
 # 프로젝트 레이어 아키텍처

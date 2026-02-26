@@ -1,0 +1,98 @@
+---
+description: 데이터 수집·전처리·ChromaDB 적재 패턴 및 새 소스 추가 방법
+globs: scripts/**/*.py,core/rag_pipeline.py
+---
+
+# 데이터 파이프라인 패턴
+
+## 인터페이스 역할 분리 (핵심 원칙)
+
+수집(Fetcher)과 RAG 소비(DataSource)는 역할이 다르므로 인터페이스를 분리한다.
+
+| 인터페이스   | 위치                   | 역할                             | 입력 타입       |
+| ------------ | ---------------------- | -------------------------------- | --------------- |
+| `Fetcher`    | `scripts/fetchers.py`  | 외부 API → `data/raw/` 파일 생성 | `MovieConfig`   |
+| `DataSource` | `core/rag_pipeline.py` | RAG 파이프라인이 파일 읽기       | `movie_id: str` |
+
+## Fetcher — 새 수집 소스 추가 방법
+
+`scripts/fetchers.py`에 `Fetcher` Protocol을 암묵적으로 구현하는 클래스를 추가한다.
+`core/`를 수정하지 않는다.
+
+```python
+# scripts/fetchers.py
+class Fetcher(Protocol):
+    def fetch(self, movie: MovieConfig) -> str: ...
+
+class TMDBFetcher:          # TMDB API
+    def fetch(self, movie: MovieConfig) -> str: ...
+
+class WikipediaFetcher:     # Wikipedia
+    def fetch(self, movie: MovieConfig) -> str: ...
+
+# 새 소스 추가 예시 (스크래퍼, YouTube Transcript 등)
+class IMDbScraper:
+    def fetch(self, movie: MovieConfig) -> str: ...
+```
+
+`ingest_data.py`에서 원하는 Fetcher를 조합해 사용한다.
+
+## DataSource — 새 RAG 저장 포맷 추가 방법
+
+`core/rag_pipeline.py`의 `DataSource` ABC를 구현한다.
+`core/`는 LangChain 의존성만 허용하므로, `requests`·`wikipediaapi` 등 외부 수집
+라이브러리는 여기에 들어올 수 없다.
+
+```python
+# core/rag_pipeline.py
+class DataSource(ABC):
+    @abstractmethod
+    def fetch(self, movie_id: str) -> str: ...
+
+class LocalFileSource(DataSource):  # 현재 유일한 구현체: data/raw/ txt 읽기
+    def fetch(self, movie_id: str) -> str: ...
+
+# 새 포맷 추가 예시 (LangChain 로더 사용 시 core/에 가능)
+# class PDFSource(DataSource):      # LangChain PyPDFLoader 사용
+#     def fetch(self, movie_id: str) -> str: ...
+```
+
+## 수집 파이프라인 흐름
+
+```
+scripts/fetchers.py          scripts/ingest_data.py       core/rag_pipeline.py
+TMDBFetcher.fetch()    →     data/raw/*.txt 저장    →     LocalFileSource.fetch()
+WikipediaFetcher.fetch()                                   → ChromaDB 적재
+```
+
+## 영화 추가 방법
+
+수집 대상 영화를 추가할 때는 `scripts/movies.py`만 수정한다.
+수집 로직(`ingest_data.py`)과 Fetcher는 건드리지 않는다.
+
+```python
+# scripts/movies.py
+MOVIES: list[MovieConfig] = [
+    {"id": "...", "title": "...", "series": "marvel", "filename": "...", "wiki": "..."},
+]
+```
+
+## 청킹 파라미터 기준
+
+```python
+# ✅ 권장 설정
+RecursiveCharacterTextSplitter(
+    chunk_size=600,
+    chunk_overlap=80,
+    separators=["\n\n", "\n", ".", " "]
+)
+# chunk_size < 400: 맥락 손실 위험
+# chunk_size > 800: 검색 정밀도 저하
+```
+
+## ingest_data.py 실행 후 검증 체크리스트
+
+- [ ] `data/raw/` 하위에 영화별 txt 파일 존재 확인
+- [ ] ChromaDB 청크 수 출력 (최소 200개 이상 권장)
+- [ ] `retriever.invoke("테스트 질문")` 으로 관련 문서 반환 확인
+- [ ] 메타데이터에 `source` (파일명), `movie` (영화명) 포함 확인

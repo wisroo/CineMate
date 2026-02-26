@@ -1,7 +1,6 @@
 ---
 description: CineMate Python 코딩 표준 - 타입 힌트, 환경변수, 에러 처리
 globs: **/**/*.py
-alwaysApply: false
 ---
 
 # Python 코딩 표준
