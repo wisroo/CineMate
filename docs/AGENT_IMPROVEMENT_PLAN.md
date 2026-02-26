@@ -248,14 +248,43 @@ FEEDBACK: <구체적 수정 요청. 예: "토니 스타크의 희생 동기를 r
 
 ---
 
-## §7 구현 우선순위
+## §7 Streamlit UI Design (High-Quality Aesthetic)
 
-| 순서 | 작업 | 파일 | 내용 |
-|------|------|------|------|
-| 1 | 팝콘 모드 개선 | `graph/agent_graph.py` | `tool_node` → `tool_agent` + `tools_node` 분리, 멀티턴 적용 |
-| 2 | rag_search 도구 래핑 | `core/tools.py` | `RAGPipeline.get_retriever` 래핑 + `RESEARCHER_TOOLS` 목록 정의 |
-| 3 | 디렉터 모드 State | `graph/schemas.py` | `DeepState` TypedDict 추가 |
-| 4 | 프롬프트 추가 | `core/prompts.py` | `RESEARCHER_PROMPT`, `ANALYST_PROMPT`, `EDITOR_PROMPT`, `REVIEWER_PROMPT` 추가 |
-| 5 | 디렉터 모드 그래프 | `graph/director_graph.py` | 4개 에이전트 노드 + REVISE 루프 신규 작성 |
-| 6 | CineMateAgent 통합 | `graph/agent_graph.py` | `mode` 파라미터 추가, `_director_graph` 참조 |
-| 7 | Streamlit UI | `app/streamlit/main.py` | 사이드바에 팝콘/디렉터 모드 선택 추가 |
+`sampleUI.html`의 디자인 철학을 반영하여, Streamlit 기반임에도 사용자에게 영화적(Cinematic) 몰입감을 줄 수 있는 고품질 UI를 구현합니다.
+
+### 7.1 시네마틱 엔트리 페이지 (Entry View)
+
+- **모드 선택 중심:** 앱 진입 시 `Popcorn`과 `Director` 모드를 시각적으로 명확히 분리하여 선택하도록 유도.
+- **Visual Cards:** 각 모드에 해당하는 아이콘(Popcorn, Clapperboard)과 함께 그라데이션 카드를 사용하여 프리미엄 느낌 부여.
+
+### 7.2 동적 모드 테마 (Dynamic Theme)
+
+- **Popcorn Mode:** Amber/Orange 계열의 따뜻한 톤 (`#f59e0b`).
+- **Director Mode:** Indigo/Blue 계열의 깊이 있는 톤 (`#4338ca`).
+- **전환 애니메이션:** 모드 전환 시 배경색 및 아이콘 테마가 즉각 선택된 모드로 동기화.
+
+### 7.3 에이전트 프로세스 시각화 (Agent Workflow UI)
+
+- **Collapsible Process:** 디렉터 모드 실행 시 `Researcher -> Analyst -> Reviewer -> Editor`로 이어지는 복잡한 단계를 사용자에게 투명하게 공개.
+- **Status Indicator:** 각 단계의 상태(완료: ✅, 진행 중: 🔄, 개선 필요: ⚠️)를 실시간으로 표시하여 시스템의 신뢰도 향상.
+
+### 7.4 정돈된 결과물 레이아웃 (Clean Layout)
+
+- **Callouts:** `st.info`나 `st.status` 등을 커스텀하여 분석 결과(디렉터 심층 분석)를 강조하는 전용 레이아웃 구성.
+- **Lucide Icons:** Streamlit 기본 아이콘 외에도 `lucide-icons` 스타일을 차용하여 버튼 및 섹션 헤더의 시각적 완성도 향상.
+
+
+## §8 구현 우선순위
+
+| 순서 | 작업                     | 파일                      | 내용                                                                           |
+| ---- | ------------------------ | ------------------------- | ------------------------------------------------------------------------------ |
+| 1    | 팝콘 모드 개선           | `graph/agent_graph.py`    | `tool_node` → `tool_agent` + `tools_node` 분리, 멀티턴 적용                    |
+| 2    | rag_search 도구 래핑     | `core/tools.py`           | `RAGPipeline.get_retriever` 래핑 + `RESEARCHER_TOOLS` 목록 정의                |
+| 3    | 디렉터 모드 State        | `graph/schemas.py`        | `DeepState` TypedDict 추가                                                     |
+| 4    | 프롬프트 추가            | `core/prompts.py`         | `RESEARCHER_PROMPT`, `ANALYST_PROMPT`, `EDITOR_PROMPT`, `REVIEWER_PROMPT` 추가 |
+| 5    | 디렉터 모드 그래프       | `graph/director_graph.py` | 4개 에이전트 노드 + REVISE 루프 신규 작성                                      |
+| 6    | CineMateAgent 통합       | `graph/agent_graph.py`    | `mode` 파라미터 추가, `_director_graph` 참조                                   |
+| 7    | Streamlit UI 기초        | `app/streamlit/main.py`   | 사이드바에 팝콘/디렉터 모드 선택 추가                                          |
+| 8    | Streamlit UI (Aesthetic) | `app/streamlit/main.py`   | `sampleUI.html` 수준의 프리미엄 UI 디자인 적용 (§8 참고)                       |
+
+---
